@@ -35,22 +35,10 @@ final class LegacySignature
             return null;
         }
 
-        // Detach method slots before PHP can invoke application autoloaders.
-        if (is_array($definition)) {
-            if (count($definition) !== 2 || !isset($definition[0], $definition[1])
-                || !(is_string($definition[0]) || is_object($definition[0]))
-                || !is_string($definition[1])
-            ) {
-                return null;
-            }
-            $definition = [$definition[0], $definition[1]];
-        }
-
-        if (!is_callable($definition)) {
+        $callback = NativeCallable::tryCapture($definition);
+        if ($callback === null) {
             return null;
         }
-
-        $callback = NativeCallable::capture($definition);
         $parameters = (new ReflectionFunction($callback))->getParameters();
 
         if (count($parameters) !== ($doublePass ? 3 : 2)

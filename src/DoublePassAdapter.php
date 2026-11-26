@@ -23,10 +23,10 @@ final readonly class DoublePassAdapter implements MiddlewareInterface
     private Closure $callback;
 
     /**
-     * @param callable|array<array-key, mixed> $callback
+     * @param callable|array<array-key, mixed>|string $callback
      */
     public function __construct(
-        callable|array $callback,
+        callable|array|string $callback,
         private ResponseFactoryInterface $responseFactory,
     ) {
         $this->callback = NativeCallable::capture($callback);

@@ -18,9 +18,9 @@ final readonly class SinglePassAdapter implements MiddlewareInterface
     private Closure $callback;
 
     /**
-     * @param callable|array<array-key, mixed> $callback
+     * @param callable|array<array-key, mixed>|string $callback
      */
-    public function __construct(callable|array $callback)
+    public function __construct(callable|array|string $callback)
     {
         $this->callback = NativeCallable::capture($callback);
     }

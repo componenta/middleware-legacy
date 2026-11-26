@@ -85,3 +85,45 @@ it('rejects malformed and inaccessible callable arrays at construction', functio
             ->toThrow(\InvalidArgumentException::class);
     }
 })->with(['single-pass' => [false], 'double-pass' => [true]]);
+
+
+class ParentTarget
+{
+    public function single(ServerRequestInterface $request, callable $next): ResponseInterface
+    {
+        return new Response(201);
+    }
+
+    public function double(ServerRequestInterface $request, ResponseInterface $response, callable $next): ResponseInterface
+    {
+        return new Response(201);
+    }
+}
+
+final class ChildTarget extends ParentTarget {}
+
+it('rejects unsupported native definitions at construction without PHP deprecations', function (bool $double): void {
+    $target = new ChildTarget();
+    $method = $double ? 'double' : 'single';
+    $diagnostics = [];
+    set_error_handler(static function (int $severity, string $message) use (&$diagnostics): bool {
+        $diagnostics[] = $message;
+        return true;
+    });
+    try {
+        foreach ([
+            [$target, 'parent::' . $method],
+            [$target, ParentTarget::class . '::' . $method],
+            ['parent', $method],
+            'parent::' . $method,
+            'componenta_missing_legacy_function',
+        ] as $callback) {
+            expect(fn () => $double ? new DoublePassAdapter($callback, new Psr17Factory()) : new SinglePassAdapter($callback))
+                ->toThrow(\InvalidArgumentException::class);
+        }
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($diagnostics)->toBe([]);
+})->with(['single-pass' => [false], 'double-pass' => [true]]);

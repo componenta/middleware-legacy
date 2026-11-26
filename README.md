@@ -56,7 +56,7 @@ The second constructor argument is a PSR-17 ResponseFactoryInterface. A new seed
 
 ## Contracts
 
-Pass native PHP callables: closures, public functions, public method pairs or invokable objects. Method-pair array slots are captured before validation; object identity is preserved. The callback must return ResponseInterface. Other return values cause UnexpectedValueException. Callback and downstream exceptions propagate unchanged. Extra dependencies can be captured in closures or supplied through callable objects; the adapters do not perform DI. Use only trusted application middleware definitions. Do not retain the continuation beyond request processing.
+Pass native PHP callables: closures, public functions, public method pairs or invokable objects. PHP's deprecated context-dependent callable forms (such as relative class names or method pairs containing a qualified method name) are not supported. Resolve them into an explicit Closure in the appropriate scope instead. Method-pair array slots are captured before validation; object identity is preserved. The callback must return ResponseInterface. Other return values cause UnexpectedValueException. Callback and downstream exceptions propagate unchanged. Extra dependencies can be captured in closures or supplied through callable objects; the adapters do not perform DI. Use only trusted application middleware definitions. Do not retain the continuation beyond request processing.
 
 ## Integration
 
