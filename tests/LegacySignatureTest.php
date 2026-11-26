@@ -36,3 +36,15 @@ it('does not infer a legacy convention from ambiguous or incompatible signatures
     'variadic continuation' => [static fn (ServerRequestInterface $request, callable ...$next): ResponseInterface => new Response()],
     'extra parameter' => [static fn (ServerRequestInterface $request, callable $next, string $extra = ''): ResponseInterface => new Response()],
 ]);
+
+
+#[\Attribute(\Attribute::TARGET_PARAMETER)]
+final class ExplicitParameter {}
+
+it('does not claim signatures with explicit parameter attributes', function (bool $double): void {
+    $callback = $double
+        ? static fn (#[ExplicitParameter] ServerRequestInterface $request, ResponseInterface $response, callable $next): ResponseInterface => new Response()
+        : static fn (ServerRequestInterface $request, #[ExplicitParameter] callable $next): ResponseInterface => new Response();
+
+    expect(LegacySignature::recognize($callback, $double))->toBeNull();
+})->with(['single-pass' => [false], 'double-pass' => [true]]);

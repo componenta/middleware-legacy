@@ -9,6 +9,7 @@ use Componenta\Config\ConfigFactory;
 use Componenta\Config\ConfigKey;
 use Componenta\Config\Environment;
 use Componenta\DI\Attribute\CurrentRequest;
+use Componenta\DI\Attribute\RequestAttribute;
 use Componenta\DI\ContainerFactory;
 use Componenta\Http\Middleware\ConfigKey as MiddlewareConfigKey;
 use Componenta\Http\Middleware\ConfigProvider;
@@ -172,4 +173,28 @@ it('integrates opt-in legacy resolvers alongside normal DI middleware and regist
 it('keeps the core factory behavior unchanged when legacy resolvers are not registered', function (): void {
     $middleware = factory(false)->createMiddleware(single(...));
     expect($middleware)->not->toBeInstanceOf(SinglePassAdapter::class);
+});
+
+
+it('leaves attributed DI callbacks to the core factory instead of replacing injected callables', function (): void {
+    $calls = 0;
+    $callback = static function (
+        #[CurrentRequest] ServerRequestInterface $request,
+        #[RequestAttribute('action')] callable $action,
+    ): ResponseInterface {
+        return $action($request);
+    };
+    $request = (new ServerRequest('GET', '/di'))->withAttribute('action',
+        static function (ServerRequestInterface $request) use (&$calls): ResponseInterface {
+            ++$calls;
+            return new Response(203, [], $request->getUri()->getPath());
+        },
+    );
+    $middleware = factory(true)->createMiddleware($callback);
+    $response = $middleware->process($request, terminal());
+
+    expect($middleware)->not->toBeInstanceOf(SinglePassAdapter::class)
+        ->and($response->getStatusCode())->toBe(203)
+        ->and((string) $response->getBody())->toBe('/di')
+        ->and($calls)->toBe(1);
 });
