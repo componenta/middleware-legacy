@@ -58,3 +58,37 @@ it('recognizes PSR and Closure type names independently of their spelling case',
     expect(LegacySignature::recognize($callback, $double))->toBe($callback)
         ->and(LegacySignature::recognize($callback, !$double))->toBeNull();
 })->with(['single-pass' => [false], 'double-pass' => [true]]);
+
+
+class ParentMiddleware
+{
+    public function single(ServerRequestInterface $request, callable $next): ResponseInterface
+    {
+        return new Response(201);
+    }
+
+    public function double(ServerRequestInterface $request, ResponseInterface $response, callable $next): ResponseInterface
+    {
+        return new Response(201);
+    }
+}
+
+final class ChildMiddleware extends ParentMiddleware {}
+
+it('declines deprecated qualified method pairs without emitting PHP deprecations', function (bool $double): void {
+    $target = new ChildMiddleware();
+    $method = $double ? 'double' : 'single';
+    $diagnostics = [];
+    set_error_handler(static function (int $severity, string $message) use (&$diagnostics): bool {
+        $diagnostics[] = $message;
+        return true;
+    });
+    try {
+        $result = LegacySignature::recognize([$target, 'parent::' . $method], $double);
+    } finally {
+        restore_error_handler();
+    }
+
+    expect($diagnostics)->toBe([])
+        ->and($result)->toBeNull();
+})->with(['single-pass' => [false], 'double-pass' => [true]]);
