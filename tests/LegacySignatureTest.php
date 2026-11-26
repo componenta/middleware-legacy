@@ -48,3 +48,13 @@ it('does not claim signatures with explicit parameter attributes', function (boo
 
     expect(LegacySignature::recognize($callback, $double))->toBeNull();
 })->with(['single-pass' => [false], 'double-pass' => [true]]);
+
+
+it('recognizes PSR and Closure type names independently of their spelling case', function (bool $double): void {
+    $callback = $double
+        ? static fn (\psr\http\message\serverrequestinterface $request, \psr\http\message\responseinterface $response, \cLoSuRe $next): ResponseInterface => new Response()
+        : static fn (\psr\http\message\serverrequestinterface $request, \cLoSuRe $next): ResponseInterface => new Response();
+
+    expect(LegacySignature::recognize($callback, $double))->toBe($callback)
+        ->and(LegacySignature::recognize($callback, !$double))->toBeNull();
+})->with(['single-pass' => [false], 'double-pass' => [true]]);

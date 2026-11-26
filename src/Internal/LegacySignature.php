@@ -51,7 +51,9 @@ final class LegacySignature
         }
 
         foreach ($parameters as $parameter) {
-            if ($parameter->isPassedByReference() || $parameter->isVariadic()) {
+            // Parameter attributes may define an explicit DI binding. Do not
+            // infer a positional convention that would override it.
+            if ($parameter->isPassedByReference() || $parameter->isVariadic() || $parameter->getAttributes() !== []) {
                 return null;
             }
         }
@@ -71,6 +73,6 @@ final class LegacySignature
     {
         $type = $parameter->getType();
 
-        return $type instanceof ReflectionNamedType && $type->getName() === $expected;
+        return $type instanceof ReflectionNamedType && strcasecmp($type->getName(), $expected) === 0;
     }
 }
