@@ -20,6 +20,8 @@ use Componenta\Http\Middleware\Legacy\Resolver\SinglePassResolver;
 use Componenta\Http\Middleware\Legacy\SinglePassAdapter;
 use Componenta\Http\Middleware\MiddlewareFactory;
 use Componenta\Http\Middleware\MiddlewareGroup;
+use Componenta\Http\Middleware\Resolver\CompositeResolver;
+use Componenta\Http\Middleware\Resolver\MiddlewareResolverInterface;
 use DomainException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
@@ -142,7 +144,7 @@ it('preserves container lookup failures rather than falling back to another inte
     $resolver = $double ? new DoublePassResolver($container, new Psr17Factory()) : new SinglePassResolver($container);
     $caught = null;
     try {
-        $resolver->resolve('service');
+        $resolver->resolve(__NAMESPACE__ . ($double ? '\\double' : '\\single'));
     } catch (MiddlewareResolutionException $error) {
         $caught = $error;
     }
@@ -198,3 +200,58 @@ it('leaves attributed DI callbacks to the core factory instead of replacing inje
         ->and((string) $response->getBody())->toBe('/di')
         ->and($calls)->toBe(1);
 });
+
+
+it('leaves opaque non-callable identifiers to subsequent extension resolvers without probing the container', function (): void {
+    $container = new class implements ContainerInterface {
+        public int $probes = 0;
+
+        public function has(string $id): bool
+        {
+            ++$this->probes;
+            throw new DomainException('The container should not be probed for an opaque extension definition.');
+        }
+
+        public function get(string $id): mixed
+        {
+            throw new \LogicException('The container should not be accessed.');
+        }
+    };
+    $expected = new SinglePassAdapter(single(...));
+    $extension = new class($expected) implements MiddlewareResolverInterface {
+        public function __construct(private MiddlewareInterface $middleware) {}
+        public function resolve(mixed $middleware): ?MiddlewareInterface
+        {
+            return $middleware === 'custom.middleware' ? $this->middleware : null;
+        }
+    };
+    $factory = new MiddlewareFactory(new CompositeResolver(
+        new SinglePassResolver($container),
+        new DoublePassResolver($container, new Psr17Factory()),
+        $extension,
+    ));
+
+    expect($factory->createMiddleware('custom.middleware'))->toBe($expected)
+        ->and($container->probes)->toBe(0);
+});
+
+it('does not probe the container for a non-native class name or a missing function', function (bool $double): void {
+    $container = new class implements ContainerInterface {
+        public int $probes = 0;
+
+        public function has(string $id): bool
+        {
+            ++$this->probes;
+            return false;
+        }
+
+        public function get(string $id): mixed
+        {
+            throw new \LogicException('Unexpected lookup.');
+        }
+    };
+    $resolver = $double ? new DoublePassResolver($container, new Psr17Factory()) : new SinglePassResolver($container);
+    expect($resolver->resolve(Methods::class))->toBeNull()
+        ->and($resolver->resolve('componenta_legacy_nonexistent_function'))->toBeNull()
+        ->and($container->probes)->toBe(0);
+})->with(['single-pass' => [false], 'double-pass' => [true]]);
