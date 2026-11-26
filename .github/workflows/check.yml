@@ -47,3 +47,48 @@ jobs:
       - run: composer audit --locked
       - run: composer test:integration
       - run: composer phpstan:integration
+
+  standalone-consumer:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: '8.4'
+            preference: '--prefer-lowest'
+          - php: '8.5'
+            preference: ''
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+      - name: Install as a runtime-only dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/legacy-consumer"
+          cd "$RUNNER_TEMP/legacy-consumer"
+          php -r '
+            echo json_encode([
+                "require" => [
+                    "php" => "^8.4",
+                    "componenta/middleware-legacy" => "1.0.0",
+                    "nyholm/psr7" => "^1.8",
+                ],
+                "repositories" => [[
+                    "type" => "path",
+                    "url" => getenv("GITHUB_WORKSPACE"),
+                    "options" => [
+                        "symlink" => false,
+                        "versions" => ["componenta/middleware-legacy" => "1.0.0"],
+                    ],
+                ]],
+            ], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+          ' > composer.json
+          composer update --no-dev --no-interaction --prefer-dist ${{ matrix.preference }}
+          composer audit --locked --no-dev
+          composer dump-autoload --no-dev --classmap-authoritative
+          php "$GITHUB_WORKSPACE/tools/standalone-consumer.php" "$PWD/vendor/autoload.php"
