@@ -56,7 +56,7 @@ The second constructor argument is a PSR-17 ResponseFactoryInterface. A new seed
 
 ## Contracts
 
-Pass native PHP callables: closures, public functions, public method pairs or invokable objects. Method-pair array slots are captured before validation; object identity is preserved. The callback must return ResponseInterface. Other return values cause UnexpectedValueException. Callback and downstream exceptions propagate unchanged. Extra dependencies can be captured in closures or supplied through callable objects; the adapters do not perform DI. Do not retain the continuation beyond request processing.
+Pass native PHP callables: closures, public functions, public method pairs or invokable objects. Method-pair array slots are captured before validation; object identity is preserved. The callback must return ResponseInterface. Other return values cause UnexpectedValueException. Callback and downstream exceptions propagate unchanged. Extra dependencies can be captured in closures or supplied through callable objects; the adapters do not perform DI. Use only trusted application middleware definitions. Do not retain the continuation beyond request processing.
 
 ## Integration
 
@@ -105,6 +105,7 @@ The optional resolvers require the factory's MiddlewareResolverInterface at runt
 composer install
 composer check
 composer audit --locked --no-dev
+composer benchmark
 ```
 
 See [Russian documentation](README.ru.md).
