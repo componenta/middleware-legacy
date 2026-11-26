@@ -20,6 +20,15 @@ use ReflectionParameter;
  */
 final class LegacySignature
 {
+    /**
+     * Check native string forms without autoloading a potential method owner.
+     * Opaque identifiers belong to other resolvers or the service container.
+     */
+    public static function isNativeStringCandidate(string $definition): bool
+    {
+        return str_contains($definition, '::') || function_exists($definition);
+    }
+
     public static function recognize(mixed $definition, bool $doublePass): ?Closure
     {
         if ($definition instanceof MiddlewareInterface || $definition instanceof RequestHandlerInterface) {

@@ -22,7 +22,9 @@ final readonly class SinglePassResolver implements MiddlewareResolverInterface
     {
         try {
             // The factory resolves present service identifiers itself.
-            if (is_string($middleware) && $this->container->has($middleware)) {
+            if (is_string($middleware)
+                && (!LegacySignature::isNativeStringCandidate($middleware) || $this->container->has($middleware))
+            ) {
                 return null;
             }
 

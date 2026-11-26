@@ -50,6 +50,11 @@ final class Methods
         return single($request, $next);
     }
 
+    public static function staticDouble(ServerRequestInterface $request, ResponseInterface $response, Closure $next): ResponseInterface
+    {
+        return double($request, $response, $next);
+    }
+
     public function double(ServerRequestInterface $request, ResponseInterface $response, Closure $next): ResponseInterface
     {
         return double($request, $response, $next);
@@ -109,6 +114,8 @@ it('resolves native legacy definitions through the corresponding optional resolv
         ['closure', true] => double(...),
         ['function', false] => __NAMESPACE__ . '\\single',
         ['function', true] => __NAMESPACE__ . '\\double',
+        ['static string', false] => Methods::class . '::single',
+        ['static string', true] => Methods::class . '::staticDouble',
         ['pair', false] => [Methods::class, 'single'],
         ['pair', true] => [$target, 'double'],
     };
@@ -119,7 +126,7 @@ it('resolves native legacy definitions through the corresponding optional resolv
     $adapter = ($double ? $doubleResolver : $single)->resolve($definition);
     expect($adapter)->toBeInstanceOf($double ? DoublePassAdapter::class : SinglePassAdapter::class)
         ->and($adapter->process(new ServerRequest('GET', '/native'), terminal())->getHeader('X-Layer'))->toBe([$double ? 'double' : 'single']);
-})->with(['closure', 'function', 'pair'])->with(['single-pass' => [false], 'double-pass' => [true]]);
+})->with(['closure', 'function', 'static string', 'pair'])->with(['single-pass' => [false], 'double-pass' => [true]]);
 
 it('does not intercept present service identifiers or access their values', function (): void {
     $id = __NAMESPACE__ . '\\single';
@@ -254,4 +261,38 @@ it('does not probe the container for a non-native class name or a missing functi
     expect($resolver->resolve(Methods::class))->toBeNull()
         ->and($resolver->resolve('componenta_legacy_nonexistent_function'))->toBeNull()
         ->and($container->probes)->toBe(0);
+})->with(['single-pass' => [false], 'double-pass' => [true]]);
+
+
+it('preserves registered static-looking service identifiers without autoloading their owners', function (bool $double): void {
+    $owner = __NAMESPACE__ . '\\Pending_' . bin2hex(random_bytes(8));
+    $id = $owner . '::run';
+    $container = new class($id) implements ContainerInterface {
+        public int $probes = 0;
+        public function __construct(private string $id) {}
+        public function has(string $id): bool
+        {
+            ++$this->probes;
+            return $id === $this->id;
+        }
+        public function get(string $id): mixed
+        {
+            throw new \LogicException('Unexpected service instantiation.');
+        }
+    };
+    $loads = 0;
+    $loader = static function (string $class) use ($owner, &$loads): void {
+        if ($class === $owner) {
+            ++$loads;
+        }
+    };
+    $resolver = $double ? new DoublePassResolver($container, new Psr17Factory()) : new SinglePassResolver($container);
+    spl_autoload_register($loader);
+    try {
+        expect($resolver->resolve($id))->toBeNull()
+            ->and($container->probes)->toBe(1)
+            ->and($loads)->toBe(0);
+    } finally {
+        spl_autoload_unregister($loader);
+    }
 })->with(['single-pass' => [false], 'double-pass' => [true]]);

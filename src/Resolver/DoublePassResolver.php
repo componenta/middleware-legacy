@@ -25,7 +25,9 @@ final readonly class DoublePassResolver implements MiddlewareResolverInterface
     public function resolve(mixed $middleware): ?MiddlewareInterface
     {
         try {
-            if (is_string($middleware) && $this->container->has($middleware)) {
+            if (is_string($middleware)
+                && (!LegacySignature::isNativeStringCandidate($middleware) || $this->container->has($middleware))
+            ) {
                 return null;
             }
 
